@@ -68,23 +68,21 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
     constructor(address _router, address _treasury, address _presale) payable {
         require(_router != address(0), "Invalid router address");
         require(_treasury != address(0), "Invalid router address");
-        
+
         _mint(address(this), MAX_SUPPLY);
 
         //Send Community rewards to multisig address
         IERC20(address(this)).safeTransfer(_treasury, COMMUNITY_REWARDS_SUPPLY);
-        //Send IDO supply to presale contract address or 
+        //Send IDO supply to presale contract address or
         IERC20(address(this)).safeTransfer(_presale, PRESALE_SUPPLY);
 
         // Initialize Router
         i_uniswapV2Router = IUniswapV2Router02(_router);
-        
+
         // Create pair
-        i_coolKidWETHPair = IUniswapV2Factory(i_uniswapV2Router.factory()).createPair(
-            address(this), 
-            i_uniswapV2Router.WETH()
-        );
-        
+        i_coolKidWETHPair =
+            IUniswapV2Factory(i_uniswapV2Router.factory()).createPair(address(this), i_uniswapV2Router.WETH());
+
         s_isExemptFromFee[address(this)] = true;
         s_isExemptFromFee[msg.sender] = true;
         s_isExemptFromFee[i_coolKidWETHPair] = true;
@@ -97,7 +95,7 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
 
         // Create Vesting Schedule for team (5%, 6 month cliff, 1 year vesting)
         _createVestingSchedule("team", ONE_YEAR / 2, ONE_YEAR, block.timestamp, 5);
-        
+
         // Create Vesting Schedule for investors (10%, 3 month cliff, 1 year vesting)
         _createVestingSchedule("investors", ONE_YEAR / 4, ONE_YEAR, block.timestamp, 10);
     }
@@ -137,13 +135,13 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
 
     function setTaxes(uint256 _newTax, bool _isBuyTax) external onlyOwner {
         require(_newTax <= 1000, "Tax cannot exceed 10%"); // Max 10% tax
-        
+
         if (_isBuyTax) {
             s_buyTax = _newTax;
         } else {
             s_sellTax = _newTax;
         }
-        
+
         emit TaxUpdated(_newTax, _isBuyTax);
     }
 
@@ -205,10 +203,7 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
         require(_duration > 0, "Invalid duration");
 
         s_vestingSchedules[_category] = VestingScheduleGroup({
-            cliff: _cliff,
-            duration: _duration,
-            startTime: _startTime,
-            percentageOfTotalSupply: _percentage
+            cliff: _cliff, duration: _duration, startTime: _startTime, percentageOfTotalSupply: _percentage
         });
 
         emit NewVestingAdded(_category, _cliff, _duration, _startTime, _percentage);
@@ -228,11 +223,8 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
         uint256 newTotal = s_totalBeneficiaryPercentagePerCategory[_category] + _beneficiaryPercentage;
         if (newTotal > 100) revert MaxCapReached();
 
-        s_beneficiaryInfo[_beneficiary] = BeneficiaryInfo({
-            beneficiaryPercentage: _beneficiaryPercentage,
-            totalClaimed: 0,
-            category: _category
-        });
+        s_beneficiaryInfo[_beneficiary] =
+            BeneficiaryInfo({beneficiaryPercentage: _beneficiaryPercentage, totalClaimed: 0, category: _category});
 
         s_totalBeneficiaryPercentagePerCategory[_category] = newTotal;
 
@@ -241,7 +233,7 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
 
     function claimVesting() external {
         BeneficiaryInfo storage beneficiary = s_beneficiaryInfo[msg.sender];
-        
+
         if (beneficiary.beneficiaryPercentage == 0) revert NoBeneficiaryInCategory();
 
         uint256 claimableAmount = _calculateClaimableAmount(msg.sender);
@@ -257,21 +249,22 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
 
     function _calculateClaimableAmount(address _beneficiary) internal view returns (uint256) {
         BeneficiaryInfo memory beneficiary = s_beneficiaryInfo[_beneficiary];
-        
+
         if (beneficiary.beneficiaryPercentage == 0) return 0;
 
         VestingScheduleGroup memory schedule = s_vestingSchedules[beneficiary.category];
-        
+
         // Check if cliff period has passed
         if (block.timestamp < schedule.startTime + schedule.cliff) {
             return 0;
         }
 
         // Calculate total vested amount for this beneficiary
-        uint256 totalAllocation = (MAX_SUPPLY * schedule.percentageOfTotalSupply * beneficiary.beneficiaryPercentage) / (100 * 100);
+        uint256 totalAllocation =
+            (MAX_SUPPLY * schedule.percentageOfTotalSupply * beneficiary.beneficiaryPercentage) / (100 * 100);
 
         uint256 vestedAmount;
-        
+
         // Check if vesting period is complete
         if (block.timestamp >= schedule.startTime + schedule.cliff + schedule.duration) {
             vestedAmount = totalAllocation;
@@ -289,19 +282,13 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
         return _calculateClaimableAmount(_beneficiary);
     }
 
-    function getBeneficiaryInfo(address _beneficiary) external view returns (
-        uint256 beneficiaryPercentage,
-        uint256 totalClaimed,
-        string memory category,
-        uint256 claimable
-    ) {
+    function getBeneficiaryInfo(address _beneficiary)
+        external
+        view
+        returns (uint256 beneficiaryPercentage, uint256 totalClaimed, string memory category, uint256 claimable)
+    {
         BeneficiaryInfo memory info = s_beneficiaryInfo[_beneficiary];
-        return (
-            info.beneficiaryPercentage,
-            info.totalClaimed,
-            info.category,
-            _calculateClaimableAmount(_beneficiary)
-        );
+        return (info.beneficiaryPercentage, info.totalClaimed, info.category, _calculateClaimableAmount(_beneficiary));
     }
 
     function pause() external onlyOwner {

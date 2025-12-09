@@ -14,7 +14,6 @@ import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUn
  * It has a max supply of 100,000,000 COOL.
  */
 contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), ERC20Pausable {
-
     uint256 public constant MAX_SUPPLY = 100e6 ether;
 
     uint256 public s_sellTax = 200; // 2%
@@ -27,16 +26,12 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
     event LPAddressListUpdated(address lpAddress, bool isLP);
     event TaxBurned(address from, address to, uint256 taxAmount, bool isBuy);
 
-
     constructor() {
-
         s_isExemptFromFee[address(this)] = true;
         s_isExemptFromFee[msg.sender] = true;
 
         _mint(address(this), MAX_SUPPLY);
-
     }
-
 
     function burn(uint256 _amount) external {
         _burn(msg.sender, _amount);
@@ -44,13 +39,13 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
 
     function setTaxes(uint256 _newTax, bool _isBuyTax) external onlyOwner {
         require(_newTax <= 1000, "Tax cannot exceed 10%"); // Max 10% tax
-        
+
         if (_isBuyTax) {
             s_buyTax = _newTax;
         } else {
             s_sellTax = _newTax;
         }
-        
+
         emit TaxUpdated(_newTax, _isBuyTax);
     }
 
@@ -107,5 +102,4 @@ contract CoolKidToken is ERC20("The Cool token", "COOL"), Ownable(msg.sender), E
     function unpause() external onlyOwner {
         _unpause();
     }
-
 }

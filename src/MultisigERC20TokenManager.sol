@@ -34,7 +34,9 @@ contract TokenManager is ReentrancyGuard {
     error TokenManager__InvalidRequiredConfirmationsNumber(uint256 current, uint256 required, string reason);
     error TokenManager__MaxAllocationExceeded(string reason);
     error TokenManager__AlreadyDeployed(string reason);
-    error TokenManager__VestedHolderProposalSubmission(address vestedHolderAddr, uint256 vestedHolderShare, string reason);
+    error TokenManager__VestedHolderProposalSubmission(
+        address vestedHolderAddr, uint256 vestedHolderShare, string reason
+    );
     error TokenManager__NewSignerProposalSubmission(address _newSigner, string reason);
     error TokenManager__InvalidPercentage(uint256 percentage, string reason);
     error TokenManager__InvaliddurationAfterCliff(uint256 durationAfterCliff, string reason);
@@ -49,12 +51,12 @@ contract TokenManager is ReentrancyGuard {
      * @dev Each proposal type triggers different execution logic
      */
     enum ProposalType {
-        DEPLOY_TOKEN,                      // Deploy the CoolKid token and initialize vesting
-        ADD_INITIAL_LIQUIDITY,             // Add liquidity to Uniswap pool
-        ADD_VESTED_HOLDER,                 // Add a beneficiary to a vesting category
-        ADD_SIGNER,                        // Add a new multisig signer
-        REMOVE_SIGNER,                     // Remove an existing multisig signer
-        CHANGE_REQUIRED_CONFIRMATIONS      // Change the number of required confirmations
+        DEPLOY_TOKEN, // Deploy the CoolKid token and initialize vesting
+        ADD_INITIAL_LIQUIDITY, // Add liquidity to Uniswap pool
+        ADD_VESTED_HOLDER, // Add a beneficiary to a vesting category
+        ADD_SIGNER, // Add a new multisig signer
+        REMOVE_SIGNER, // Remove an existing multisig signer
+        CHANGE_REQUIRED_CONFIRMATIONS // Change the number of required confirmations
     }
 
     /**
@@ -109,19 +111,19 @@ contract TokenManager is ReentrancyGuard {
 
     /// @notice Array of current multisig signers
     address[] private s_signers;
-    
+
     /// @notice Array of all proposals (pending, executed, and cancelled)
     Proposal[] private proposals;
-    
+
     /// @notice Minimum number of signers required (must always have at least 1)
     uint256 private constant MIN_NUM_SIGNER = 1;
-    
+
     /// @notice Number of approvals required to execute a proposal
     uint256 private s_numRequiredConfirmations;
-    
+
     /// @notice Maps address to whether they are an authorized signer
     mapping(address => bool) private s_isSigner;
-    
+
     /// @notice Tracks which signers have confirmed each proposal
     /// @dev proposalIndex => (signerAddress => hasConfirmed)
     mapping(uint256 propIndex => mapping(address signer => bool hasConfirmed)) private hasConfirmed;
@@ -132,10 +134,10 @@ contract TokenManager is ReentrancyGuard {
 
     /// @notice Constant representing one year in seconds (365 days)
     uint256 private constant ONE_YEAR = 365 days;
-    
+
     /// @notice Maps beneficiary addresses to their vesting information
     mapping(address beneficiary => BeneficiaryInfo) private s_vestedHolderInfo;
-    
+
     /// @notice Maps category names to their vesting schedule configuration
     mapping(string category => VestingScheduleGroup) private s_vestingSchedules;
 
@@ -145,16 +147,16 @@ contract TokenManager is ReentrancyGuard {
 
     /// @notice The CoolKid token contract instance
     CoolKidToken private s_coolKidToken;
-    
+
     /// @notice Total supply of tokens (set at deployment)
     uint256 private s_tokenMaxSupply;
-    
+
     /// @notice Address that receives community rewards and LP tokens
     address private immutable i_treasury;
-    
+
     /// @notice Address of the presale contract that receives presale allocation
     address private immutable i_presaleContract;
-    
+
     /// @notice Whether the token has been deployed
     bool private s_isTokenDeployed;
 
@@ -164,13 +166,13 @@ contract TokenManager is ReentrancyGuard {
 
     /// @notice Address of the Uniswap V2 Router
     address private immutable i_router;
-    
+
     /// @notice Uniswap V2 Router contract interface
     IUniswapV2Router02 private i_uniswapV2Router;
-    
+
     /// @notice Address of the CoolKid/WETH Uniswap pair
     address private s_coolKidWETHPair;
-    
+
     /// @notice Whether initial liquidity has been added
     bool private s_liquidityAdded;
 
@@ -218,7 +220,9 @@ contract TokenManager is ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     event SubmitTransaction(address indexed proposalSubmitter, ProposalType propType);
-    event NewVestingAdded(string _category, uint256 _cliff, uint256 _durationAfterCliff, uint256 _startTime, uint256 _percentage);
+    event NewVestingAdded(
+        string _category, uint256 _cliff, uint256 _durationAfterCliff, uint256 _startTime, uint256 _percentage
+    );
     event NewVestedHolderAdded(string _category, address _vestedHolder, uint256 _vestedHolderShare);
     event VestingClaimed(address beneficiary, string category, uint256 amount);
     event SignerAdded(address newSigner);
@@ -250,29 +254,27 @@ contract TokenManager is ReentrancyGuard {
         if (_signers.length == 0) {
             revert TokenManager__SignerRequired("Need at least 1 signer. The provided signers array is empty");
         }
-        
+
         // Validate number of confirmations is reasonable
         if (_numOfConfirmations > _signers.length || _numOfConfirmations == 0) {
             revert TokenManager__InvalidRequiredConfirmationsNumber(
-                _numOfConfirmations,
-                _signers.length,
-                "required confirmations must be between 1 and number of signers"
+                _numOfConfirmations, _signers.length, "required confirmations must be between 1 and number of signers"
             );
         }
-        
+
         s_numRequiredConfirmations = _numOfConfirmations;
-        
+
         // Initialize signers and check for duplicates
         for (uint256 i = 0; i < _signers.length; i++) {
             address signer = _signers[i];
-            
+
             if (signer == address(0)) {
                 revert TokenManager__InvalidAddress(signer, "Signer address cannot be zero address");
             }
             if (s_isSigner[signer]) {
                 revert TokenManager__AlreadyExists("Duplicate signer in initialization");
             }
-            
+
             s_isSigner[_signers[i]] = true;
             s_signers.push(_signers[i]);
         }
@@ -298,12 +300,7 @@ contract TokenManager is ReentrancyGuard {
 
         proposals.push(
             Proposal({
-                propType: propType,
-                value: msg.value,
-                data: "",
-                isExecuted: false,
-                isCancelled: false,
-                numOfApprovals: 0
+                propType: propType, value: msg.value, data: "", isExecuted: false, isCancelled: false, numOfApprovals: 0
             })
         );
 
@@ -322,25 +319,23 @@ contract TokenManager is ReentrancyGuard {
      * @param _vestedHolderShare Percentage share of the category allocation (0-100)
      * @dev Validates that category exists and share is within bounds
      */
-    function submitVestedHolderProposal(
-        string memory _category,
-        address _vestedHolder,
-        uint256 _vestedHolderShare
-    ) external payable onlySigner {
+    function submitVestedHolderProposal(string memory _category, address _vestedHolder, uint256 _vestedHolderShare)
+        external
+        payable
+        onlySigner
+    {
         // Validate vesting category exists
         if (s_vestingSchedules[_category].startTime == 0) {
             revert TokenManager__InvalidIndex("vesting schedule not found for this category");
         }
-        
+
         // Validate beneficiary address and share
         if (_vestedHolder == address(0) || _vestedHolderShare == 0) {
             revert TokenManager__VestedHolderProposalSubmission(
-                _vestedHolder,
-                _vestedHolderShare,
-                "Invalid vested holder address or share. Neither cannot be zero"
+                _vestedHolder, _vestedHolderShare, "Invalid vested holder address or share. Neither cannot be zero"
             );
         }
-        
+
         // Validate share percentage
         if (_vestedHolderShare > 100) {
             revert TokenManager__InvalidPercentage(_vestedHolderShare, "Vested holder share cannot exceed 100%");
@@ -383,11 +378,10 @@ contract TokenManager is ReentrancyGuard {
         // Validate new signer address
         if (_newSigner == address(0) || s_isSigner[_newSigner]) {
             revert TokenManager__NewSignerProposalSubmission(
-                _newSigner,
-                "Invalid address(zero address) or new signer already exists"
+                _newSigner, "Invalid address(zero address) or new signer already exists"
             );
         }
-        
+
         // Validate new required confirmations
         if (_newRequiredNumConfirmation == 0 || _newRequiredNumConfirmation > s_signers.length + 1) {
             revert TokenManager__InvalidRequiredConfirmationsNumber(
@@ -429,7 +423,7 @@ contract TokenManager is ReentrancyGuard {
         if (!s_isSigner[_signerToRemove]) {
             revert TokenManager__InvalidIndex("Signer to remove does not exist");
         }
-        
+
         // Prevent removing last signer
         if (s_signers.length <= MIN_NUM_SIGNER) {
             revert TokenManager__SignerRequired("cannot remove last signer");
@@ -465,9 +459,7 @@ contract TokenManager is ReentrancyGuard {
         // Validate new required confirmations
         if (_newRequired == 0 || _newRequired > s_signers.length) {
             revert TokenManager__InvalidRequiredConfirmationsNumber(
-                _newRequired,
-                s_signers.length,
-                "required confirmations must be between 1 and current number of signers"
+                _newRequired, s_signers.length, "required confirmations must be between 1 and current number of signers"
             );
         }
 
@@ -512,10 +504,10 @@ contract TokenManager is ReentrancyGuard {
         if (hasConfirmed[propIndex][msg.sender]) {
             revert TokenManager__AlreadyExists("Signer has already confirmed this proposal");
         }
-        
+
         hasConfirmed[propIndex][msg.sender] = true;
         proposals[propIndex].numOfApprovals++;
-        
+
         // Auto-execute if threshold reached
         if (proposals[propIndex].numOfApprovals == s_numRequiredConfirmations) {
             executeProposal(propIndex);
@@ -528,12 +520,7 @@ contract TokenManager is ReentrancyGuard {
      * @dev Only pending proposals can be cancelled
      * @dev Refunds ETH to the canceller if any was sent with the proposal
      */
-    function cancelProposal(uint256 propIndex)
-        public
-        onlySigner
-        proposalExists(propIndex)
-        proposalExecuted(propIndex)
-    {
+    function cancelProposal(uint256 propIndex) public onlySigner proposalExists(propIndex) proposalExecuted(propIndex) {
         proposals[propIndex].isCancelled = true;
 
         // Refund ETH if any was sent with the proposal
@@ -565,9 +552,7 @@ contract TokenManager is ReentrancyGuard {
         // Verify sufficient approvals
         if (proposal.numOfApprovals < s_numRequiredConfirmations) {
             revert TokenManager__InvalidRequiredConfirmationsNumber(
-                proposal.numOfApprovals,
-                s_numRequiredConfirmations,
-                "not enough approvals to execute proposal"
+                proposal.numOfApprovals, s_numRequiredConfirmations, "not enough approvals to execute proposal"
             );
         }
 
@@ -576,31 +561,26 @@ contract TokenManager is ReentrancyGuard {
             _deployToken(proposal.value);
             proposal.isExecuted = true;
             return;
-            
         } else if (propType == ProposalType.ADD_INITIAL_LIQUIDITY) {
             _addInitialLiquidity(proposal.value);
             proposal.isExecuted = true;
             return;
-            
         } else if (propType == ProposalType.ADD_VESTED_HOLDER) {
             (string memory _category, address _vestedHolder, uint256 _share) =
                 abi.decode(proposal.data, (string, address, uint256));
             _addHolderToVestingCategory(_category, _vestedHolder, _share);
             proposal.isExecuted = true;
             return;
-            
         } else if (propType == ProposalType.ADD_SIGNER) {
             (address _signer, uint256 numConfirmations) = abi.decode(proposal.data, (address, uint256));
             _addSigner(_signer, numConfirmations);
             proposal.isExecuted = true;
             return;
-            
         } else if (propType == ProposalType.REMOVE_SIGNER) {
             address _signer = abi.decode(proposal.data, (address));
             _removeSigner(_signer);
             proposal.isExecuted = true;
             return;
-            
         } else if (propType == ProposalType.CHANGE_REQUIRED_CONFIRMATIONS) {
             uint256 _requiredConfirmations = abi.decode(proposal.data, (uint256));
             _changeRequiredConfirmations(_requiredConfirmations);
@@ -633,7 +613,7 @@ contract TokenManager is ReentrancyGuard {
         if (i_presaleContract == address(0)) {
             revert TokenManager__InvalidAddress(i_presaleContract, "Invalid(zero) presaleContract address");
         }
-        
+
         // Prevent double deployment
         if (s_isTokenDeployed) {
             revert TokenManager__AlreadyDeployed("Token already deployed");
@@ -645,7 +625,7 @@ contract TokenManager is ReentrancyGuard {
 
         // Transfer 60% to treasury for community rewards
         IERC20(s_coolKidToken).safeTransfer(i_treasury, (s_tokenMaxSupply * 60) / 100);
-        
+
         // Transfer 10% to presale contract
         IERC20(s_coolKidToken).safeTransfer(i_presaleContract, (s_tokenMaxSupply * 10) / 100);
 
@@ -653,8 +633,8 @@ contract TokenManager is ReentrancyGuard {
         i_uniswapV2Router = IUniswapV2Router02(i_router);
 
         // Create CoolKid/WETH pair
-        s_coolKidWETHPair =
-            IUniswapV2Factory(i_uniswapV2Router.factory()).createPair(address(s_coolKidToken), i_uniswapV2Router.WETH());
+        s_coolKidWETHPair = IUniswapV2Factory(i_uniswapV2Router.factory())
+            .createPair(address(s_coolKidToken), i_uniswapV2Router.WETH());
 
         // Configure token fees for the LP
         s_coolKidToken.setExemptFromFee(s_coolKidWETHPair, true);
@@ -668,7 +648,7 @@ contract TokenManager is ReentrancyGuard {
         // Create vesting schedules
         // Team: 6 month cliff, then 1 year linear vesting, 5% of total supply
         _createVestingSchedule("team", ONE_YEAR / 2, ONE_YEAR, block.timestamp, 5);
-        
+
         // Investors: 3 month cliff, then 1 year linear vesting, 10% of total supply
         _createVestingSchedule("investors", ONE_YEAR / 4, ONE_YEAR, block.timestamp, 10);
 
@@ -687,12 +667,12 @@ contract TokenManager is ReentrancyGuard {
         if (!s_isTokenDeployed) {
             revert TokenManager__AlreadyDeployed("Token must be deployed before adding liquidity");
         }
-        
+
         // Prevent double liquidity addition
         if (s_liquidityAdded) {
             revert TokenManager__AlreadyDeployed("liquidity has already been added");
         }
-        
+
         // Validate ETH amount
         if (ethAmount == 0) {
             revert TokenManager__InvalidValue(0, "ETH amount for liquidity cannot be zero");
@@ -742,12 +722,12 @@ contract TokenManager is ReentrancyGuard {
         if (s_vestingSchedules[_category].startTime != 0) {
             revert TokenManager__AlreadyExists("Vesting schedule already exists for this category");
         }
-        
+
         // Validate percentage
         if (_percentageShare == 0 || _percentageShare > 100) {
             revert TokenManager__InvalidPercentage(_percentageShare, "Invalid percentage");
         }
-        
+
         // Validate duration
         if (_durationAfterCliff == 0) {
             revert TokenManager__InvaliddurationAfterCliff(_durationAfterCliff, "Invalid durationAfterCliff");
@@ -1125,12 +1105,7 @@ contract TokenManager is ReentrancyGuard {
      * @param signer Address of the signer to check
      * @return True if signer has confirmed the proposal
      */
-    function isConfirmedBy(uint256 propIndex, address signer)
-        public
-        view
-        proposalExists(propIndex)
-        returns (bool)
-    {
+    function isConfirmedBy(uint256 propIndex, address signer) public view proposalExists(propIndex) returns (bool) {
         return hasConfirmed[propIndex][signer];
     }
 
